@@ -24,10 +24,10 @@ JSON-RPC.
 
 import base64
 
-from zope.interface import implements
+from zope.interface import implementer
+
 from twisted.internet.defer import succeed
 from twisted.web.iweb import IBodyProducer
-
 from twisted.cred.credentials import Anonymous, UsernamePassword
 from twisted.internet import reactor
 from twisted.internet.protocol import Protocol
@@ -36,7 +36,7 @@ from twisted.web.client import (Agent, ContentDecoderAgent, GzipDecoder,
                                 HTTPConnectionPool)
 from twisted.web.http_headers import Headers
 
-import jsonrpc
+from fastjsonrpc import jsonrpc
 
 
 class ReceiverProtocol(Protocol):
@@ -54,7 +54,7 @@ class ReceiverProtocol(Protocol):
         self.body = ''
         self.finished = finished
 
-    def dataReceived(self, data):
+    def dataReceived(self, data: bytes):
         """
         Appends data to the internal buffer.
 
@@ -62,7 +62,7 @@ class ReceiverProtocol(Protocol):
         @param data: Data from server. 'Should' be (a part of) JSON
         """
 
-        self.body += data
+        self.body += data.decode()
 
     def connectionLost(self, reason):
         """
@@ -80,20 +80,20 @@ class ReceiverProtocol(Protocol):
         self.finished.callback(self.body)
 
 
+@implementer(IBodyProducer)
 class StringProducer(object):
     """
     There's no FileBodyProducer in Twisted < 12.0.0
     See http://twistedmatrix.com/documents/current/web/howto/client.html for
     details about this class
     """
-    implements(IBodyProducer)
 
     def __init__(self, body):
         self.body = body
         self.length = len(body)
 
     def startProducing(self, consumer):
-        consumer.write(self.body)
+        consumer.write(self.body.encode())
         return succeed(None)
 
     def pauseProducing(self):
@@ -218,7 +218,7 @@ class ProxyFactory(object):
         return pool
 
     def _setContentDecoder(self, proxy):
-        proxy.agent = ContentDecoderAgent(proxy.agent, [('gzip', GzipDecoder)])
+        proxy.agent = ContentDecoderAgent(proxy.agent, [(b'gzip', GzipDecoder)])
 
 
 class Proxy(object):
@@ -346,7 +346,7 @@ class Proxy(object):
             headers_dict.update(self._getBasicHTTPAuthHeaders())
         headers = Headers(headers_dict)
 
-        d = self.agent.request('POST', self.url, headers, body)
+        d = self.agent.request(b'POST', self.url.encode(), headers, body)
         d.addCallback(self.checkAuthError)
         d.addCallback(self.bodyFromResponse)
         d.addCallback(jsonrpc.decodeResponse)
@@ -364,7 +364,8 @@ class Proxy(object):
             if password is None:
                 password = ''
 
-            encoded_cred = base64.encodestring('%s:%s' % (username, password))
+            # encoded_cred = base64.encodestring('%s:%s' % (username, password))
+            encoded_cred = base64.encodebytes(f'{username}:{password}'.encode()).decode()
             auth_value = "Basic " + encoded_cred.strip()
             self.auth_headers = {'Authorization': [auth_value]}
 

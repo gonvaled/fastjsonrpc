@@ -22,6 +22,8 @@ Provides functions for encoding and decoding the JSON into functions, params
 etc. and other JSON-RPC related stuff like constants.
 """
 
+import typing as t
+
 cjson_loaded = False
 try:
     import cjson
@@ -36,7 +38,6 @@ except ImportError:
             raise ImportError('cjson, json or simplejson required')
 
 import random
-import types
 from twisted.python.failure import Failure
 
 VERSION_1 = 1.0
@@ -71,7 +72,7 @@ def jdumps(obj):
         return json.dumps(obj)
 
 
-def jloads(json_string):
+def jloads(json_string: str):
     """
     Decode JSON no matter what library did we import
 
@@ -90,7 +91,7 @@ def jloads(json_string):
         return json.loads(json_string)
 
 
-def encodeRequest(method, args=None, id_=0, version=VERSION_1):
+def encodeRequest(method, args: t.Union[None, list, dict] = None, id_: t.Union[int, str] = 0, version=VERSION_1):
     """
     Return a JSON object representation of the request.
 
@@ -145,7 +146,7 @@ def decodeResponse(json_response):
     @TODO support batch requests
     """
 
-    response = jloads(json_response)
+    response = jloads(json_response) if json_response else {}
 
     if 'jsonrpc' in response and response['jsonrpc'] == "2.0":
         if 'result' in response and 'error' in response:
@@ -173,7 +174,7 @@ def decodeResponse(json_response):
     raise ValueError('Not a valid JSON-RPC response')
 
 
-def decodeRequest(request):
+def decodeRequest(request: str):
     """
     Decodes the JSON encoded request.
 
@@ -215,8 +216,7 @@ def verifyMethodCall(request):
     try:
         # 'jsonrpc' is only contained in V2 requests
         if 'jsonrpc' in request:
-            if not isinstance(request['jsonrpc'],
-                              (types.StringTypes, types.FloatType)):
+            if not isinstance(request['jsonrpc'], (str, float)):
                 raise JSONRPCError('Invalid jsonrpc type', INVALID_REQUEST)
 
             request['jsonrpc'] = float(request['jsonrpc'])
@@ -227,13 +227,12 @@ def verifyMethodCall(request):
             request['id'] = None
 
         if (not 'method' in request or
-                not isinstance(request['method'], types.StringTypes)):
+                not isinstance(request['method'], str)):
             raise JSONRPCError('Invalid method type', INVALID_REQUEST)
 
         if ('params' in request and
                 not isinstance(request['params'],
-                               (types.ListType, types.TupleType,
-                                types.DictType))):
+                               (list, tuple, dict))):
             raise JSONRPCError('Invalid params type', INVALID_REQUEST)
 
         return request
@@ -286,7 +285,7 @@ def _getErrorResponse(exception):
     return error_result
 
 
-def prepareMethodResponse(result, id_=None, version=VERSION_1):
+def prepareMethodResponse(result, id_: t.Union[int, str, None] = None, version=VERSION_1):
     """
     Add all info we have to the response, prepare it to be serialized.
 

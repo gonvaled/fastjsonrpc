@@ -27,7 +27,7 @@ from twisted.internet.defer import maybeDeferred
 from twisted.internet.defer import DeferredList
 from twisted.internet.defer import succeed
 
-import jsonrpc
+from fastjsonrpc import jsonrpc
 
 
 class JSONRPCServer(resource.Resource):
@@ -58,7 +58,7 @@ class JSONRPCServer(resource.Resource):
         """
 
         request.content.seek(0, 0)
-        request_json = request.content.read()
+        request_json = request.content.read().decode()
         request_content = jsonrpc.decodeRequest(request_json)
 
         return request_content
@@ -186,10 +186,11 @@ class JSONRPCServer(resource.Resource):
         """
 
         if response != '[]':
+            data = response.encode()
             # '[]' is result of batch request with notifications only
             request.setHeader('Content-Type', 'application/json')
-            request.setHeader('Content-Length', str(len(response)))
-            request.write(response)
+            request.setHeader('Content-Length', str(len(data)))
+            request.write(data)
 
         request.finish()
 

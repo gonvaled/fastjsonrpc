@@ -1,91 +1,90 @@
-import os
-import sys
-sys.path.insert(0, os.path.abspath('..'))
-
+import json
 import re
 
 from fastjsonrpc import jsonrpc
 from fastjsonrpc.jsonrpc import JSONRPCError
-from twisted.trial.unittest import TestCase
+
+from .helpers import ExtendedTestCase, Regex
 
 
-class TestEncodeRequest(TestCase):
+class TestEncodeRequest(ExtendedTestCase):
+
+    def assert_json(self, value, expected):
+        value = json.loads(value)
+        expected = json.loads(expected)
+        self.assertEquals(value, expected)
+
+    def assert_json_values(self, value, **kwargs):
+        value = json.loads(value)
+        for key, expected in kwargs.items():
+            if expected is list:
+                assert isinstance(value[key], list)
+            elif isinstance(expected, Regex):
+                value2 = str(value[key])
+                self.assertTrue(re.match(expected.pattern, value2))
+            else:
+                self.assertEquals(value[key], expected)
 
     def test_noArgs(self):
         self.assertRaises(TypeError, jsonrpc.encodeRequest)
 
     def test_onlyMethod(self):
         result = jsonrpc.encodeRequest('method')
-        pattern = '\{"method": "method", "id": \d+\}'
+        pattern = r'\{"method": "method", "id": \d+\}'
         self.assertTrue(re.match(pattern, result))
 
     def test_methodIdInt(self):
         result = jsonrpc.encodeRequest('method', id_=123)
         expected = '{"method": "method", "id": 123}'
-        self.assertEquals(result, expected)
+        self.assert_json(result, expected)
 
     def test_methodIdStr(self):
         result = jsonrpc.encodeRequest('method', id_='abc')
         expected = '{"method": "method", "id": "abc"}'
-        self.assertEquals(result, expected)
+        self.assert_json(result, expected)
 
     def test_methodArgs(self):
         result = jsonrpc.encodeRequest('method', ['abc', 'def'])
-        pattern = '\{"params": \["abc", "def"\], "method": "method", '
-        pattern += '"id": \d+\}'
-        self.assertTrue(re.match(pattern, result))
+        self.assert_json_values(result, params=['abc', 'def'], method='method', id=Regex(r'\d+'))
 
     def test_methodKwargs(self):
         result = jsonrpc.encodeRequest('method', {'first': 'a', 'second': 'b'})
-        pattern = '\{"params": \{"second": "b", "first": "a"\}, '
-        pattern += '"method": "method", "id": \d+\}'
-        self.assertTrue(re.match(pattern, result))
+        self.assert_json_values(result, params={'first': 'a', 'second': 'b'}, method='method', id=Regex(r'\d+'))
 
     def test_methodVersion1(self):
         result = jsonrpc.encodeRequest('method', version=1.0)
-        pattern = '\{"method": "method", "id": \d+\}'
-        self.assertTrue(re.match(pattern, result))
+        self.assert_json_values(result, method='method', id=Regex(r'\d+'))
 
     def test_methodVersion2(self):
         result = jsonrpc.encodeRequest('method', version=2.0)
-        pattern = '\{"jsonrpc": "2.0", "method": "method", "id": \d+\}'
-        self.assertTrue(re.match(pattern, result))
+        self.assert_json_values(result, jsonrpc='2.0', method='method', id=Regex(r'\d+'))
 
     def test_methodVersion2int(self):
         result = jsonrpc.encodeRequest('method', version=2)
-        pattern = '\{"jsonrpc": "2.0", "method": "method", "id": \d+\}'
-        self.assertTrue(re.match(pattern, result))
+        self.assert_json_values(result, jsonrpc='2.0', method='method', id=Regex(r'\d+'))
 
     def test_methodVersion3(self):
         result = jsonrpc.encodeRequest('method', version=3)
-        pattern = '\{"method": "method", "id": \d+\}'
-        self.assertTrue(re.match(pattern, result))
+        self.assert_json_values(result, method='method', id=Regex(r'\d+'))
 
     def test_methodIdVersion(self):
         result = jsonrpc.encodeRequest('method', version=2.0, id_=123)
-        expected = '{"jsonrpc": "2.0", "method": "method", "id": 123}'
-        self.assertEquals(result, expected)
+        self.assert_json_values(result, jsonrpc='2.0', method='method', id=123)
 
     def test_methodArgsId(self):
         result = jsonrpc.encodeRequest('method', 'abcdef', id_=123)
-        expected = '{"params": "abcdef", "method": "method", "id": 123}'
-        self.assertEquals(result, expected)
+        self.assert_json_values(result, params='abcdef', method='method', id=123)
 
     def test_methodArgsVersion2(self):
         result = jsonrpc.encodeRequest('method', 'abcdef', version=2)
-        pattern = '\{"jsonrpc": "2.0", "params": "abcdef", "method": '
-        pattern += '"method", "id": \d+\}'
-        self.assertTrue(re.match(pattern, result))
+        self.assert_json_values(result, jsonrpc='2.0', params='abcdef', method='method', id=Regex(r'\d+'))
 
     def test_all(self):
-        result = jsonrpc.encodeRequest('method', 'abcdef', id_=123,
-                                       version=2.0)
-        expected = '{"jsonrpc": "2.0", "params": "abcdef", "method": '
-        expected += '"method", "id": 123}'
-        self.assertEquals(result, expected)
+        result = jsonrpc.encodeRequest('method', 'abcdef', id_=123, version=2.0)
+        self.assert_json_values(result, jsonrpc='2.0', params='abcdef', method='method', id=123)
 
 
-class TestDecodeRequest(TestCase):
+class TestDecodeRequest(ExtendedTestCase):
 
     def test_empty(self):
         self.assertRaises(Exception, jsonrpc.decodeRequest, '')
@@ -96,13 +95,13 @@ class TestDecodeRequest(TestCase):
     def test_onlyMethod(self):
         result = jsonrpc.decodeRequest('{"method": "aa"}')
         expected = {'method': 'aa'}
-        self.assertEquals(result, expected)
+        self.assert_json(result, expected)
 
     def test_onlyParams(self):
         request = '{"params": "abcdef"}'
         result = jsonrpc.decodeRequest(request)
         expected = {'params': 'abcdef'}
-        self.assertEquals(result, expected)
+        self.assert_json(result, expected)
 
     def test_onlyIdInt(self):
         request = '{"id": 123}'
@@ -143,7 +142,7 @@ class TestDecodeRequest(TestCase):
         self.assertEquals(result, expected)
 
 
-class TestVerifyMethodCall(TestCase):
+class TestVerifyMethodCall(ExtendedTestCase):
 
     def test_onlyMethod(self):
         request = {'method': 'abc'}
@@ -194,7 +193,7 @@ class TestVerifyMethodCall(TestCase):
         self.assertEquals(request, jsonrpc.verifyMethodCall(request))
 
 
-class TestPrepareMethodResponse(TestCase):
+class TestPrepareMethodResponse(ExtendedTestCase):
 
     def test_noResponseNoVersion(self):
         result = jsonrpc.prepareMethodResponse(None, 123)
@@ -230,16 +229,14 @@ class TestPrepareMethodResponse(TestCase):
         response = ValueError('The method raised an exception!')
         result = jsonrpc.prepareMethodResponse(response, 123)
         expected = {"result": None, "id": 123,
-                    "error": {"message": "The method raised an exception!",
-                    "code": -32603}}
+                    "error": {"message": "The method raised an exception!", "code": -32603}}
         self.assertEquals(result, expected)
 
     def test_invalidParams(self):
         response = TypeError('Invalid params')
         result = jsonrpc.prepareMethodResponse(response, 123)
         expected = {"result": None, "id": 123,
-                    "error": {"message": "Invalid params",
-                    "code": -32602}}
+                    "error": {"message": "Invalid params", "code": -32602}}
         self.assertEquals(result, expected)
 
     def test_methodNotFount(self):
@@ -247,12 +244,11 @@ class TestPrepareMethodResponse(TestCase):
                                 jsonrpc.METHOD_NOT_FOUND)
         result = jsonrpc.prepareMethodResponse(response, 123)
         expected = {"result": None, "id": 123,
-                    "error": {"message": "Method aa not found",
-                    "code": -32601}}
+                    "error": {"message": "Method aa not found", "code": -32601}}
         self.assertEquals(result, expected)
 
 
-class TestDecodeResponse(TestCase):
+class TestDecodeResponse(ExtendedTestCase):
 
     def test_noResponse(self):
         self.assertRaises(Exception, jsonrpc.decodeResponse, '')

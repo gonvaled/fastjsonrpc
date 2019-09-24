@@ -25,7 +25,7 @@ from twisted.protocols import basic
 from twisted.internet.defer import succeed, DeferredList, maybeDeferred
 from twisted.python import log
 
-import jsonrpc
+from fastjsonrpc import jsonrpc
 
 
 class JSONRPCServer(basic.NetstringReceiver):

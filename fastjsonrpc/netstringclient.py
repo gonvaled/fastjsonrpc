@@ -21,6 +21,8 @@ JSONRPC Server
 Provides JSONRPCServer class, which can be used to expose methods via RPC.
 """
 
+import typing as t
+
 from twisted.protocols import basic
 from twisted.python import log
 from twisted.internet.protocol import Factory
@@ -28,7 +30,7 @@ from twisted.internet import reactor
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.defer import Deferred
 
-import jsonrpc
+from fastjsonrpc import jsonrpc
 
 
 class CallbackProtocol(basic.NetstringReceiver):
@@ -138,7 +140,7 @@ class Proxy(object):
         self.response_deferred is THE problem ;-)
     """
 
-    def __init__(self, url, version=jsonrpc.VERSION_1, timeout=None,
+    def __init__(self, url, version: t.Union[int, str] = jsonrpc.VERSION_1, timeout=None,
                  verbose=False):
         """
         @type url: str

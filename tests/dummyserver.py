@@ -2,10 +2,12 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
+from zope.interface import implementer
+
 from twisted.enterprise import adbapi
-from zope.interface import implements
 from twisted.cred.portal import IRealm
 from twisted.web.resource import IResource
+
 from fastjsonrpc.server import JSONRPCServer
 
 DBFILE = 'sqlite.db'
@@ -34,8 +36,8 @@ class DummyServer(JSONRPCServer):
         return None
 
 
+@implementer(IRealm)
 class AuthDummyServer(object):
-    implements(IRealm)
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IResource in interfaces:

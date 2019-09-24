@@ -13,3 +13,6 @@ MANIFEST
 dist/*
 .ropeproject
 ssl-keys
+/pip-wheel-metadata/
+/.idea/workspace.xml
+/build
