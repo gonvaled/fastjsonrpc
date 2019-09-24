@@ -16,3 +16,4 @@ ssl-keys
 /pip-wheel-metadata/
 /.idea/workspace.xml
 /build
+/fastjsonrpc.egg-info/
